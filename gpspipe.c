@@ -91,11 +91,25 @@ static int parse_gps_json(const char * buffer, struct gps_package * data) {
     {
         const char * lat_path[] = { "lat", (const char *) 0 };
         const char * lon_path[] = { "lon", (const char *) 0 };
+        const char * alt_path[] = { "alt", (const char *) 0 };
+        const char * track_path[] = { "track", (const char *) 0 };
+        const char * speed_path[] = { "speed", (const char *) 0 };
+
         yajl_val lat = yajl_tree_get(node, lat_path, yajl_t_number);
         yajl_val lon = yajl_tree_get(node, lon_path, yajl_t_number);
+        yajl_val alt = yajl_tree_get(node, alt_path, yajl_t_number);
+        yajl_val track = yajl_tree_get(node, track_path, yajl_t_number);
+        yajl_val speed = yajl_tree_get(node, speed_path, yajl_t_number);
+
         if (lat) data->lat = YAJL_GET_DOUBLE(lat);
         else return ERROR;
         if (lon) data->lon = YAJL_GET_DOUBLE(lon);
+        else return ERROR;
+        if (alt) data->alt = YAJL_GET_DOUBLE(alt);
+        else return ERROR;
+        if (track) data->heading = YAJL_GET_DOUBLE(track);
+        else return ERROR;
+        if (speed) data->speed = YAJL_GET_DOUBLE(speed);
         else return ERROR;
     }
     else
@@ -125,13 +139,6 @@ static bool SendGPSPackage(int fd, const void *buf, size_t n, uint8_t flag) {
 			return false;
 		}
 	}
-	CheckSum_t checksum = ChecksumCalculator(buf, n);
-	checksum = htonl(checksum);
-	if (write(fd, &checksum, sizeof(CheckSum_t)) == -1) {
-		fprintf(stderr, "gpspipe: Socket write Error, %s(%d)\n", strerror(errno), errno);
-		return false;
-	}
-
 	return true;
 }
 

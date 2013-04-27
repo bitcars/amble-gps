@@ -23,6 +23,9 @@
 struct gps_package {
     float lat;
     float lon;
+    float alt;
+    float speed;
+    float heading;
 };
 
 
@@ -30,8 +33,8 @@ struct gps_package {
 #define ERROR   1
 
 #define DELIMITER_BYTE  0xFE
-#define NOFIX_BYTE		0x01
-#define GPS_BYTE		0x02
+#define NOFIX_BYTE		0x23
+#define GPS_BYTE		0x34
 
 
 typedef uint32_t CheckSum_t;

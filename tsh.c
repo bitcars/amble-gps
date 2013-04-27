@@ -193,7 +193,7 @@ void pickUp(AmbleClientInfo * client)
 		Sigprocmask(SIG_UNBLOCK, &mask, NULL ); /* unblock SIGCHLD */
 		Setpgid(0, 0); /* Set group id of child */
 		serverOffLine(); /* Child doesn't need to listen */
-
+		client->cid = nextjid;
 		handler(client);
 		exit(0);
 	}

@@ -97,27 +97,64 @@ int parse_gps_json(const char * buffer, struct gps_package * data) {
     return 1;
 }
 
-static int C=0;
+
+void outputKML(struct gps_package * gps, clientId cid)
+{
+	FILE * fpKML;
+    char kmlfile[50];
+    sprintf(kmlfile, "client-%d.kml", cid);
+	fpKML = fopen(kmlfile, "w");
+
+	int range, tilt, speed;
+	speed = (int)(gps->speed * 2.2369356f);
+	if (speed >= 10) {
+		range = ((speed / 100) * 350) + 650;
+		tilt = ((speed / 120) * 43) + 30;
+	} else {
+		range = 200;
+		tilt = 30;
+	}
+
+	fprintf(fpKML, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+	fprintf(fpKML, "<kml xmlns=\"http://earth.google.com/kml/2.0\">\n");
+	fprintf(fpKML, "  <Placemark>\n");
+	fprintf(fpKML, "    <name>%d mph</name>\n", speed);
+	fprintf(fpKML, "    <description>^</description>\n");
+	fprintf(fpKML, "    <LookAt>\n");
+	fprintf(fpKML, "      <longitude>%f</longitude>\n", gps->lon);
+	fprintf(fpKML, "      <latitude>%f</latitude>\n", gps->lat);
+	fprintf(fpKML, "      <range>%d</range>\n", range);
+	fprintf(fpKML, "      <tilt>%d</tilt>\n", tilt);
+	fprintf(fpKML, "      <heading>%f</heading>\n", gps->heading);
+	fprintf(fpKML, "    </LookAt>\n");
+	fprintf(fpKML, "    <Point>\n");
+	fprintf(fpKML, "      <coordinates>%f,%f,%f</coordinates>\n", gps->lon, gps->lat, gps->alt);
+	fprintf(fpKML, "    </Point>\n");
+	fprintf(fpKML, "  </Placemark>\n");
+	fprintf(fpKML, "</kml>\n");
+
+	fflush(fpKML);
+	fclose(fpKML);
+}
 
 /**
  * Thread handler for incoming connections...
 **/
 void handler(AmbleClientInfo * clientInfo) {
-    char line[MAX_MSG];
     int client_local;   /* keep a local copy of the client's socket descriptor */
-    FILE *fp;
-     
+    FILE * fp;
+    struct gps_package gps;
+
     char outfile[50];
-    sprintf(outfile, "Connection%03d.txt", C++);
+    sprintf(outfile, "client-%d.txt", clientInfo->cid);
+
 
     fp = fopen(outfile, "w");
+
     client_local = clientInfo->remotefd; /* store client socket descriptor */
     
-    /* reset line */
-    memset(line, 0, MAX_MSG);
-    
-    struct gps_package gps;
     while(ReadGPSPackage(client_local, &gps)!= -1) {
+    	outputKML(&gps, clientInfo->cid);
         fprintf(fp, "%f, %f\n", gps.lat, gps.lon);
 		fflush(fp);
     }
@@ -266,8 +303,11 @@ int readline(int fd, char *str, int maxlen)
 
 
 typedef enum {
-	INIT, TYPE, NOFIXFOUND, GPSFOUND, CHKSUM, NOFIXDOCODE, GPSDECODE
+	INIT, TYPE, NOFIXFOUND, GPSFOUND
 } State_t;
+
+/*                     GPS DATA              DELIMITER         TYPE         Offset */
+#define BORDER (sizeof(struct gps_package) + sizeof(uint8_t) + sizeof(uint8_t) - 1)
 
 /**
  * ReadGPSPackage()
@@ -277,7 +317,6 @@ int ReadGPSPackage(int fd, struct gps_package * gpkg) {
 	unsigned char buff[MAX_MSG];
 	struct gps_package * marker = NULL;
 	int foundType;
-	CheckSum_t checksum;
 	State_t state = INIT;
 
 	readcount = (int)read(fd, buff, sizeof(buff));
@@ -297,18 +336,18 @@ int ReadGPSPackage(int fd, struct gps_package * gpkg) {
 				if (buff[i] == DELIMITER_BYTE)
 					state = TYPE;
 				++i;
-				if (i + 13 > readcount) {
-					for (n=readcount; n<i+13; n++) {
+				if (i+BORDER > readcount) {
+					for (n=readcount; n<i+BORDER; n++) {
 						rc = (int)read(fd, &buff[n], 1);
 						if (rc == -1)
 							return -1;
 					}
-					readcount=i+13;
+					readcount=i+BORDER;
 					Printf("new readcount %d\n", readcount);
 				}
 				break;
 			case TYPE:
-				Printf("TYPE 0x%X\n",buff[i]);
+				Printf("TYPE 0x%02X\n",buff[i]);
 				if (buff[i] == NOFIX_BYTE) {
 					state = NOFIXFOUND;
 					foundType = NOFIXFOUND;
@@ -325,42 +364,18 @@ int ReadGPSPackage(int fd, struct gps_package * gpkg) {
 				state = INIT;
 				break;
 			case GPSFOUND:
-				Printf("GPSFOUND 0x%X\n",buff[i]);
-				if ((i + (int)sizeof(struct gps_package)) < readcount) {
+				Printf("GPSFOUND i=%d\n",i);
+				if ((i + (int)sizeof(struct gps_package)) <= readcount) {
 					marker = (struct gps_package *)(buff+i);
-					state = CHKSUM;
+					Printf("marker %f, %f\n", marker->lat, marker->lon);
+					*gpkg = *marker;
+					state = INIT;
 					i += sizeof(struct gps_package);
 				}
 				else {
-					break;
+					printf("Fatal: GPS Package Parsing Error\n");
+					return -1;
 				}
-				break;
-			case CHKSUM:
-				Printf("CHKSUM 0x%X\n",buff[i]);
-				checksum = (* (CheckSum_t *)(buff+i));
-				checksum = ntohl(checksum);
-
-				if (checksum == ChecksumCalculator((void *)marker, sizeof(struct gps_package))) {
-					if (foundType == NOFIXFOUND)
-						state = NOFIXDOCODE;
-					else
-						state = GPSDECODE;
-					Printf("received checksum %u\n", checksum);
-					Printf("marker %f, %f\n", marker->lat, marker->lon);
-				}
-				else
-					state = INIT;
-
-				break;
-			case NOFIXDOCODE:
-				state = INIT;
-				break;
-			case GPSDECODE:
-				Printf("GPSDECODE 0x%X\n",buff[i]);
-				gpkg->lat = marker->lat;
-				gpkg->lon = marker->lon;
-				state = INIT;
-				i += sizeof(CheckSum_t);
 				break;
 			default:
 				fprintf(stderr, "State machine error\n");

@@ -13,6 +13,7 @@
 
 
 typedef struct ambleOperator {
+	clientId cid;
 	int remotefd;
 	struct sockaddr_storage remoteAddr;
 } AmbleClientInfo;

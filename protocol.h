@@ -21,6 +21,7 @@
 #define COM_SUCCESS 0
 #define COM_FAILURE -1
 
+typedef unsigned clientId;
 /*
  * The Packaging protocol
  */
