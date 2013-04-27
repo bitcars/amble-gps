@@ -22,6 +22,6 @@ CheckSum_t ChecksumCalculator(const void * buf, size_t n) {
 	for (i = 0; i < n; i++) {
 		checksum += *(((uint8_t *)buf) + i);
 	}
-	printf("checksum %u\n", checksum);
+	//printf("checksum %u\n", checksum);
 	return checksum;
 }

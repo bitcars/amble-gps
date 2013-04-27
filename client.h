@@ -12,4 +12,6 @@
 
 #include "protocol.h"
 
+int clientCall(char * serverName);
+
 #endif /* CLIENT_H_ */

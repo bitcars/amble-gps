@@ -213,8 +213,6 @@ int main(int argc, char **argv) {
 	FILE *fp;
 	unsigned int flags;
 	fd_set fds;
-	struct hostent * host = NULL;
-	struct sockaddr_in local_addr, serv_addr;
 	int client = -1;
 	int rc = -1;
 
@@ -317,45 +315,6 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	/* check if server address is reachable */
-	if (usesocket) {
-		/* get host address from specified server name */
-		host = gethostbyname(serverName);
-
-		if (host == NULL ) {
-			printf("%s: unknown host '%s'\n", argv[0], serverName);
-			exit(-1);
-		}
-
-		/* now fill in sockaddr_in for remote address */
-		serv_addr.sin_family = host->h_addrtype;
-		/* get first address in host, copy to serv_addr */
-		memcpy((char *) &serv_addr.sin_addr.s_addr, host->h_addr_list[0],
-				host->h_length);
-		serv_addr.sin_port = htons(SERVER_PORT);
-		memset(serv_addr.sin_zero, 0, 8);
-
-		/* create local stream socket */
-		client = socket(PF_INET, SOCK_STREAM, 0);
-		if (client < 0) {
-			perror("cannot open socket ");
-			exit(-1);
-		}
-
-		/* bind local socket to any port number */
-		local_addr.sin_family = AF_INET;
-		local_addr.sin_addr.s_addr = htonl(INADDR_ANY );
-		local_addr.sin_port = htons(0);
-		memset(local_addr.sin_zero, 0, 8);
-
-		rc = bind(client, (struct sockaddr *) &local_addr, sizeof(local_addr));
-
-		if (rc < 0) {
-			printf("%s: cannot bind port TCP %u\n", argv[0], SERVER_PORT);
-			perror("error ");
-			exit(1);
-		}
-	}
 
 	/* Daemonize if the user requested it. */
 	/*@ -unrecog @*/
@@ -409,6 +368,13 @@ int main(int argc, char **argv) {
 	if ((isatty(STDERR_FILENO) == 0) || daemonize)
 		vflag = 0;
 
+	/* check if server address is reachable */
+	if (usesocket) {
+		client = clientCall(serverName);
+		if (client != -1)
+			connectionAlive = true;
+	}
+
 	for (;;) {
 		int r = 0;
 		struct timeval tv;
@@ -460,67 +426,23 @@ int main(int argc, char **argv) {
 
 				if (c == '\n') {
 					/* We have received a complete package */
-					if (usesocket) {
+					if (usesocket && connectionAlive) {
+						/* parse the package with json */
+						/* null end the string */
+						if (j < (int) (sizeof(serbuf) - 1)) {
+							serbuf[j] = '\0';
 
-						/* connect to server */
-						if (!connectionAlive) {
-							rc = connect(client, (struct sockaddr *) &serv_addr,
-									sizeof(serv_addr));
-							if (rc < 0) {
-								perror("cannot connect ");
-								connectionAlive = false;
-							} else {
-								connectionAlive = true;
+							rc = parse_gps_json(serbuf, &gpsPackage);
+							if (rc == SUCCESS) {
+								connectionAlive = SendGPSPackage(client,
+										&gpsPackage,
+										(size_t) sizeof(struct gps_package),
+										GPS_BYTE);
 							}
-						}
 
-						if (connectionAlive) {
-							/* parse the package with json */
-							/* null end the string */
-							if (j < (int) (sizeof(serbuf) - 1)) {
-								serbuf[j] = '\0';
-
-								rc = parse_gps_json(serbuf, &gpsPackage);
-								if (rc == SUCCESS) {
-									connectionAlive = SendGPSPackage(client,
-											&gpsPackage,
-											(size_t) sizeof(struct gps_package),
-											GPS_BYTE);
-								} else {
-									/* send no data */
-									//SendGPSPackage(client, &gpsPackage, (size_t) sizeof(struct gps_package));
-								}
-
-								if (!connectionAlive) {
-									printf("What the heck? The server is messed up?\n");
-									/* create local stream socket */
-									client = socket(PF_INET, SOCK_STREAM, 0);
-									if (client < 0) {
-										perror("cannot open socket ");
-										exit(-1);
-									}
-
-									/* bind local socket to any port number */
-									local_addr.sin_family = AF_INET;
-									local_addr.sin_addr.s_addr = htonl(
-											INADDR_ANY );
-									local_addr.sin_port = htons(0);
-									memset(local_addr.sin_zero, 0, 8);
-
-									rc = bind(client,
-											(struct sockaddr *) &local_addr,
-											sizeof(local_addr));
-
-									if (rc < 0) {
-										printf("%s: cannot bind port TCP %u\n",
-												argv[0], SERVER_PORT);
-										perror("error ");
-										exit(1);
-									}
-								}
-							} else {
-								fprintf(stderr, "gpspipe: buffer overflow");
-							}
+						} else {
+							fprintf(stderr, "gpspipe: buffer overflow");
+							exit(1);
 						}
 					}
 

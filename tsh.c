@@ -40,7 +40,7 @@
 
 /* Global variables */
 extern char **environ;      /* defined in libc */
-char prompt[] = "tsh> ";    /* command line prompt (DO NOT CHANGE) */
+char prompt[] = "sh> ";    /* command line prompt (DO NOT CHANGE) */
 int verbose = 0;            /* if true, print additional output */
 int nextjid = 1;            /* next job ID to allocate */
 char sbuf[MAXLINE];         /* for composing sprintf messages */
@@ -181,7 +181,7 @@ void pickUp(AmbleClientInfo * client)
 {
 	pid_t pid;
 	sigset_t mask;
-	char cmdline[MAXLINE] = "New client connection";
+	char cmdline[MAXLINE] = "New client connection\n";
 
 	Sigemptyset(&mask); /* create empty mask */
 	Sigaddset(&mask, SIGCHLD); /* add SIGCHLD to mask */
