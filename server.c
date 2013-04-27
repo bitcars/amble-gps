@@ -119,7 +119,7 @@ void outputKML(struct gps_package * gps, clientId cid)
 	fprintf(fpKML, "<kml xmlns=\"http://earth.google.com/kml/2.0\">\n");
 	fprintf(fpKML, "  <Placemark>\n");
 	fprintf(fpKML, "    <name>%d mph</name>\n", speed);
-	fprintf(fpKML, "    <description>^</description>\n");
+	fprintf(fpKML, "    <description>AmbleTour ClientId %d</description>\n", cid);
 	fprintf(fpKML, "    <LookAt>\n");
 	fprintf(fpKML, "      <longitude>%f</longitude>\n", gps->lon);
 	fprintf(fpKML, "      <latitude>%f</latitude>\n", gps->lat);
@@ -365,17 +365,25 @@ int ReadGPSPackage(int fd, struct gps_package * gpkg) {
 				break;
 			case GPSFOUND:
 				Printf("GPSFOUND i=%d\n",i);
-				if ((i + (int)sizeof(struct gps_package)) <= readcount) {
-					marker = (struct gps_package *)(buff+i);
-					Printf("marker %f, %f\n", marker->lat, marker->lon);
-					*gpkg = *marker;
+				if (foundType == GPSFOUND) {
+					if ((i + (int)sizeof(struct gps_package)) <= readcount) {
+						marker = (struct gps_package *)(buff+i);
+						Printf("marker %f, %f\n", marker->lat, marker->lon);
+						*gpkg = *marker;
+						state = INIT;
+						i += sizeof(struct gps_package);
+					}
+					else {
+						printf("Fatal: GPS Package Parsing Error\n");
+						return -1;
+					}
+				}
+				else if (foundType == NOFIXFOUND){
 					state = INIT;
-					i += sizeof(struct gps_package);
+					i = readcount;
 				}
-				else {
-					printf("Fatal: GPS Package Parsing Error\n");
+				else
 					return -1;
-				}
 				break;
 			default:
 				fprintf(stderr, "State machine error\n");
