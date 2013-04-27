@@ -14,45 +14,51 @@
 #ifndef PROTOCOL_H_
 #define PROTOCOL_H_
 
+#include <stdbool.h>
+
 #include "global.h"
+
+#define COM_SUCCESS 0
+#define COM_FAILURE -1
 
 /*
  * The Packaging protocol
  */
-
-struct _comPackageHeader;
+#define COM_HEADER_SIZE	12
 
 typedef struct comPackage {
-	struct _comPackageHeader header;
+	char header[COM_HEADER_SIZE];
 	void * pData;
-	size_t uDataSize;
+	size_t uDataBytes;
 } comPackage;
 
 comPackage * newComPackage(void);
-void deleteComPackage(comPackage * ptr);
 
 /*
  *  sender communication protocol
  */
 
 typedef struct comSender {
-
+	int sockfd;
+	int flag;
+	uint32_t latestId;
 } comSender;
 
+comSender * newComSender(void);
 /*
  *  receiver communication protocol
  */
 
 typedef struct comReceiver {
-
+	uint32_t lastId;
 } comReceiver;
 
-/*
- * listener communication protocol
- */
+comReceiver * newComReceiver(void);
 
-typedef struct comListener {
+bool comDetectConnection(const comReceiver* pReceiver);
 
-}comListener;
+int comPackData(comPackage* pPackage, void * pData, const size_t uDataSize);
+int comSendData(comSender* pSender, comPackage* pPackage);
+int comReceiveData(const comReceiver* pReceiver, const comPackage* pPackage, char ** ppData, size_t* pLength);
 
 #endif /* PROTOCOL_H_ */

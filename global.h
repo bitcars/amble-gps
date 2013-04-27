@@ -7,12 +7,15 @@
 
 #ifndef GLOBAL_H_
 #define GLOBAL_H_
+
 #include <stdint.h>
 #include <stdio.h>
+#include <arpa/inet.h>
 
 /* socket port and max message length */
-#define SERVER_PORT 1600
+#define SERVER_PORT "3412"
 #define MAX_MSG 1024
+#define BACKLOG 5
 
 /*
  * Data transfer Protocol
@@ -33,16 +36,11 @@ struct gps_package {
 
 typedef uint32_t CheckSum_t;
 
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa);
+
 CheckSum_t ChecksumCalculator(const void * buf, size_t n);
 
-CheckSum_t ChecksumCalculator(const void * buf, size_t n) {
-	CheckSum_t checksum = 0;
-	unsigned i;
-	for (i = 0; i < n; i++) {
-		checksum += *(((uint8_t *)buf) + i);
-	}
-	printf("checksum %u\n", checksum);
-	return checksum;
-}
+
 
 #endif /* GLOBAL_H_ */

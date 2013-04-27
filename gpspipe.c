@@ -45,7 +45,7 @@
 #include "gpsd.h"
 #include "gpsdclient.h"
 #include "revision.h"
-#include "global.h"
+#include "client.h"
 
 static struct gps_data_t gpsdata;
 static void spinner(unsigned int, unsigned int);
@@ -429,7 +429,8 @@ int main(int argc, char **argv) {
 		if (vflag)
 			spinner(vflag, l++);
 
-		/* reading directly from the socket avoids decode overhead */errno = 0;
+		/* reading directly from the socket avoids decode overhead */
+		errno = 0;
 		r = (int) read(gpsdata.gps_fd, buf, sizeof(buf));
 		if (r > 0) {
 			int i = 0;

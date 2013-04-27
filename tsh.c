@@ -12,6 +12,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <pthread.h>
+
+#include "server.h"
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -88,10 +91,13 @@ int pid2jid(pid_t pid);
 void listjobs(struct job_t *jobs);
 
 void usage(void);
-void unix_error(char *msg);
-void app_error(char *msg);
+void unix_error(const char *msg);
+void app_error(const char *msg);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
+
+void * serverThread(void *);
+void pickUp(AmbleClientInfo * client);
 
 /*
  * main - The shell's main routine 
@@ -101,6 +107,7 @@ int main(int argc, char **argv)
 	char c;
 	char cmdline[MAXLINE];
 	int emit_prompt = 1; /* emit prompt (default) */
+	pthread_t thread;   /* thread variable */
 
 	/* Redirect stderr to stdout (so that driver will get all output
 	 * on the pipe connected to stdout) */
@@ -137,9 +144,13 @@ int main(int argc, char **argv)
 	/* Initialize the job list */
 	initjobs(jobs);
 
+	/* Initialize the server */
+	serverOnLine();
+
+	pthread_create(&thread, 0, &serverThread, NULL);
+
 	/* Execute the shell's read/eval loop */
 	while (1) {
-
 		/* Read command line */
 		if (emit_prompt) {
 			printf("%s", prompt);
@@ -149,6 +160,7 @@ int main(int argc, char **argv)
 			app_error("fgets error");
 		if (feof(stdin)) { /* End of file (ctrl-d) */
 			fflush(stdout);
+			serverOffLine();
 			exit(0);
 		}
 
@@ -159,6 +171,57 @@ int main(int argc, char **argv)
 	}
 
 	exit(0); /* control never reaches here */
+}
+
+/*
+ * pickUp - picks up the incoming transmission and forks into
+ * a new process
+ */
+void pickUp(AmbleClientInfo * client)
+{
+	pid_t pid;
+	sigset_t mask;
+	char cmdline[MAXLINE] = "New client connection";
+
+	Sigemptyset(&mask); /* create empty mask */
+	Sigaddset(&mask, SIGCHLD); /* add SIGCHLD to mask */
+	Sigaddset(&mask, SIGINT); /* add SIGINT to mask */
+	Sigaddset(&mask, SIGTSTP); /* add SIGTSTP to mask */
+	Sigprocmask(SIG_BLOCK, &mask, NULL ); /* block SIGCHLD */
+
+	if ((pid = Fork()) == 0) { /* child runs user job */
+		Sigprocmask(SIG_UNBLOCK, &mask, NULL ); /* unblock SIGCHLD */
+		Setpgid(0, 0); /* Set group id of child */
+		serverOffLine(); /* Child doesn't need to listen */
+
+		handler(client);
+		exit(0);
+	}
+
+	/* background job */
+	addjob(jobs, pid, BG, cmdline); /* add child to job list */
+	Sigprocmask(SIG_UNBLOCK, &mask, NULL ); /* unblock SIGCHLD */
+	printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
+
+	return;
+}
+
+/*
+ * serverThread - The thread that create a socket to listen
+ * and fork into connections with clients
+ */
+void * serverThread(void * null) {
+	AmbleClientInfo * newClient;
+
+	while (1) {
+		/* Check if there is incoming connection */
+		if (serverRings(&newClient)) {
+			pickUp(newClient);
+		}
+	}
+
+	/* control should never reach here */
+	return NULL;
 }
 
 /*
@@ -278,8 +341,11 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv)
 {
-	if (!strcmp(argv[0], "quit"))	/* quit command */
+	if (!strcmp(argv[0], "quit")) 	/* quit command */
+	{
+		serverOffLine();
 		exit (0);
+	}
 	
 	if (!strcmp(argv[0], "&"))		/* ignore singleton & */		
 		return 1;
@@ -628,7 +694,7 @@ void usage(void)
 /*
  * unix_error - unix-style error routine
  */
-void unix_error(char *msg)
+void unix_error(const char *msg)
 {
 	fprintf(stdout, "%s: %s\n", msg, strerror(errno));
 	exit(1);
@@ -637,7 +703,7 @@ void unix_error(char *msg)
 /*
  * app_error - application-style error routine
  */
-void app_error(char *msg)
+void app_error(const char *msg)
 {
 	fprintf(stdout, "%s\n", msg);
 	exit(1);
