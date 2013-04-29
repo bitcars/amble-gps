@@ -441,10 +441,15 @@ int main(int argc, char **argv) {
 
 							rc = parse_gps_json(serbuf, &gpsPackage);
 							if (rc == SUCCESS) {
-								connectionAlive = SendGPSPackage(client,
+								if (SendGPSPackage(client,
 										&gpsPackage,
 										(size_t) sizeof(struct gps_package),
-										GPS_BYTE);
+										GPS_BYTE) == -1) {
+									client = clientCall(serverName);
+									if (client == -1) {
+										connectionAlive = false;
+									}
+								}
 							}
 
 						} else {

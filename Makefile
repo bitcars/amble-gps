@@ -12,8 +12,8 @@ CC := gcc
 LDFINAL := gcc
 
 ifeq ($(HOST_TYPE), x86_64)
-CCFLAG := -m64
-LDFLAGS := -m64
+CCFLAG :=
+LDFLAGS :=
 else
 ifeq ($(HOST_TYPE), x86)
 CCFLAG :=
