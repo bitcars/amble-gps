@@ -12,12 +12,12 @@ CC := gcc
 LDFINAL := gcc
 
 ifeq ($(HOST_TYPE), x86_64)
-CCFLAG := -m64
-LDFLAGS := -m64
+CCFLAG :=
+LDFLAGS :=
 else
 ifeq ($(HOST_TYPE), x86)
-CCFLAG := -m32
-LDFLAGS := -m32
+CCFLAG :=
+LDFLAGS :=
 endif
 endif
 

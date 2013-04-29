@@ -20,9 +20,9 @@ int clientCall(char * serverName) {
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
-	if ((rv = getaddrinfo(serverName, SERVER_PORT, &hints, &servinfo)) != 0) {
+	while ((rv = getaddrinfo(serverName, SERVER_PORT, &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return -1;
+		sleep(1);
 	}
 
 	// loop through all the results and connect to the first we can
@@ -49,7 +49,7 @@ int clientCall(char * serverName) {
 
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
             s, sizeof s);
-    printf("client: connecting to %s\n", s);
+    perror("client: connected to %s\n", s);
 
     freeaddrinfo(servinfo); // all done with this structure
 
