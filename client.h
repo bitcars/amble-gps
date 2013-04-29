@@ -12,6 +12,10 @@
 
 #include "protocol.h"
 
+
+#define CALL_TRIES  3
+#define RETRY_TIMER 60.0
+
 int clientCall(char * serverName);
 
 #endif /* CLIENT_H_ */

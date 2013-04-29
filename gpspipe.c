@@ -199,6 +199,20 @@ static void usage(void)
 		  "You must use -o if you use -d.\n");
 }
 
+time_t checkpoint;
+
+static bool timer_up(void) {
+	time_t now = time(NULL );
+	if (difftime(now, checkpoint) > RETRY_TIMER)
+		return true;
+	else
+		return false;
+}
+
+static void timer_reset(void) {
+	checkpoint = time(NULL);
+}
+
 /*@ -compdestroy @*/
 int main(int argc, char **argv) {
 	char buf[4096]; /* Yiding: buffer to put the gps package from gpsd */
@@ -380,6 +394,8 @@ int main(int argc, char **argv) {
 		client = clientCall(serverName);
 		if (client != -1)
 			connectionAlive = true;
+		else
+			timer_reset();
 	}
 
 	for (;;) {
@@ -445,16 +461,26 @@ int main(int argc, char **argv) {
 										&gpsPackage,
 										(size_t) sizeof(struct gps_package),
 										GPS_BYTE) == false) {
-									client = clientCall(serverName);
-									if (client == -1) {
-										connectionAlive = false;
-									}
+									connectionAlive = false;
+									timer_reset();
 								}
 							}
 
 						} else {
 							fprintf(stderr, "gpspipe: buffer overflow");
 							exit(1);
+						}
+					}
+					else if (usesocket && !connectionAlive) {
+						if (timer_up()) {
+							client = clientCall(serverName);
+							if (client == -1) {
+								connectionAlive = false;
+								timer_reset();
+							}
+							else {
+								connectionAlive = true;
+							}
 						}
 					}
 

@@ -10,6 +10,7 @@
 
 #include "client.h"
 
+
 int clientCall(char * serverName) {
 	int sockfd;
 	struct addrinfo hints, *servinfo, *p;
@@ -20,9 +21,14 @@ int clientCall(char * serverName) {
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
+	int errcnt = 0;
 	while ((rv = getaddrinfo(serverName, SERVER_PORT, &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		sleep(1);
+		sleep(2);
+		errcnt++;
+		if (errcnt == CALL_TRIES) {
+			return -1;
+		}
 	}
 
 	// loop through all the results and connect to the first we can
