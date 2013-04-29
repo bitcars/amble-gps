@@ -14,7 +14,7 @@
 
 
 #define CALL_TRIES  3
-#define RETRY_TIMER 60.0
+#define RETRY_TIMER 10.0
 
 int clientCall(char * serverName);
 
