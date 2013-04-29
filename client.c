@@ -49,7 +49,7 @@ int clientCall(char * serverName) {
 
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
             s, sizeof s);
-    perror("client: connected to %s\n", s);
+    fprintf(stderr, "client: connected to %s\n", s);
 
     freeaddrinfo(servinfo); // all done with this structure
 
