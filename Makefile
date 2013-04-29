@@ -40,7 +40,7 @@ $(PSERVER): $(SERVERDEP)
 
 $(PCLIENT): $(CLIENTDEP)
 	@echo "Linking the target $@"
-	$(LDFINAL) $(CLIENTDEP) -o $@ -Wl,-rpath=//usr/local/lib -L. -L/usr/local/lib -lrt -lcap -lbluetooth -lgps -lm -lyajl
+	$(LDFINAL) $(CLIENTDEP) -o $@ -Wl,-rpath=//usr/local/lib -L. -L/usr/local/lib -lrt -lgps -lm -lyajl
 
 %.c.o: %.c
 	@echo "Compiling C source: $<"
