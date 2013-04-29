@@ -444,7 +444,7 @@ int main(int argc, char **argv) {
 								if (SendGPSPackage(client,
 										&gpsPackage,
 										(size_t) sizeof(struct gps_package),
-										GPS_BYTE) == -1) {
+										GPS_BYTE) == false) {
 									client = clientCall(serverName);
 									if (client == -1) {
 										connectionAlive = false;
