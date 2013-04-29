@@ -21,7 +21,7 @@
 #define SUCCESS 0
 #define ERROR   1
 
-#define DEBUG 1
+#define DEBUG 0
 static int Printf (const char * format, ...)
 {
     va_list args;
