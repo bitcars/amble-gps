@@ -6,7 +6,7 @@ SRCDIR = ./
 OBJDIR = ./
 INCDIR = ./
 
-HOST_TYPE = x86_64
+HOST_TYPE = x86
 
 CC := gcc
 LDFINAL := gcc
@@ -16,8 +16,8 @@ CCFLAG := -m64
 LDFLAGS := -m64
 else
 ifeq ($(HOST_TYPE), x86)
-CCFLAG := -m32
-LDFLAGS := -m32
+CCFLAG :=
+LDFLAGS :=
 endif
 endif
 
