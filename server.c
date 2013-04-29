@@ -218,11 +218,16 @@ void serverOnLine(void) {
 		exit(1);
 	}
 	// loop through all the results and bind to the first we can
+	int on=1;
 	for (p = servinfo; p != NULL ; p = p->ai_next) {
 		if ((server = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
 			perror("listener: socket");
 			continue;
 		}
+            if (setsockopt( server, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+perror("set enable address reuse");
+continue;
+}
 
 	    /* set listening socket as non-blocking */
 	    if (fcntl(server, F_SETFL, O_NONBLOCK) < 0 ) {
