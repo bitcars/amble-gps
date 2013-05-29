@@ -121,6 +121,7 @@ static int parse_gps_json(const char * buffer, struct gps_package * data) {
 }
 
 static bool SendGPSPackage(int fd, const void *buf, size_t n, uint8_t flag) {
+
 	/* send gps package */
     uint8_t header = DELIMITER_BYTE;
 	if (write(fd, &header, sizeof(uint8_t)) == -1) {
@@ -139,7 +140,39 @@ static bool SendGPSPackage(int fd, const void *buf, size_t n, uint8_t flag) {
 			return false;
 		}
 	}
-	return true;
+
+	fd_set set;
+	struct timeval timeout;
+	int rv;
+	char buff[128];
+	int len = 128;
+
+	FD_ZERO(&set);
+	/* clear the set */
+	FD_SET(fd, &set);
+	/* add our file descriptor to the set */
+
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+
+	rv = select(fd + 1, &set, NULL, NULL, &timeout);
+	if (rv == -1) {
+		perror("select"); /* an error occurred */
+		return false;
+	} else if (rv == 0) {
+		perror("read timeout"); /* a timeout occurred */
+		read(fd, buff, len); /* there was data to read */
+		printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@, %s", buff);
+		return false;
+	} else {
+		read(fd, buff, len); /* there was data to read */
+		printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@, %s", buff);
+		return true;
+	}
+//	if (read(fd, buff, len) < 0)
+//		return false;
+//	else
+//		return true;
 }
 
 

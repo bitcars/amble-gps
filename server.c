@@ -15,7 +15,6 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-
 #include "server.h"
 
 #define SUCCESS 0
@@ -323,6 +322,7 @@ int ReadGPSPackage(int fd, struct gps_package * gpkg) {
 	struct gps_package * marker = NULL;
 	int foundType;
 	State_t state = INIT;
+	uint8_t ack = 0x23;
 
 	readcount = (int)read(fd, buff, sizeof(buff));
 	Printf("readcound %d\n", readcount);
@@ -348,6 +348,11 @@ int ReadGPSPackage(int fd, struct gps_package * gpkg) {
 							return -1;
 					}
 					readcount=i+BORDER;
+					/* send back an ack message */
+					if (write(fd, "I got your message",18) == -1) {
+						perror("write");
+						return -1;
+					}
 					Printf("new readcount %d\n", readcount);
 				}
 				break;

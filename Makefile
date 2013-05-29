@@ -6,7 +6,7 @@ SRCDIR = ./
 OBJDIR = ./
 INCDIR = ./
 
-HOST_TYPE = x86
+HOST_TYPE = x86_64
 
 CC := gcc
 LDFINAL := gcc

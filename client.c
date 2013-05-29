@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <termios.h>
 #include <stdio.h>
 #include <unistd.h> /* close */
 #include <string.h>
@@ -58,6 +59,14 @@ int clientCall(char * serverName) {
     fprintf(stderr, "client: connected to %s\n", s);
 
     freeaddrinfo(servinfo); // all done with this structure
+
+//
+//	struct termios termios;
+//
+//	tcgetattr(sockfd, &termios);
+//	termios.c_lflag &= ~ICANON; /* Set non-canonical mode */
+//	termios.c_cc[VTIME] = 50; /* Set timeout of 10.0 seconds */
+//	tcsetattr(sockfd, TCSANOW, &termios);
 
 	return sockfd;
 
