@@ -21,19 +21,23 @@
 #define ERROR   1
 
 #define DEBUG 0
+
+#if DEBUG
 static int Printf (const char * format, ...)
 {
     va_list args;
     va_start(args, format);
     int ret = 0;
 
-	if (DEBUG)
-		ret = vprintf(format, args);
+	ret = vprintf(format, args);
 
     va_end(args);
 
 	return ret;
 }
+#else
+#define Printf(...)
+#endif
 
 /* auxillary functions to read newline-terminated strings from a file/socket */
 int readnf (int, char *);
