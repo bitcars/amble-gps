@@ -21,6 +21,14 @@
 #define COM_SUCCESS 0
 #define COM_FAILURE -1
 
+#define DEBUG 1
+
+#if DEBUG
+int Printf (const char * format, ...);
+#else
+#define Printf(...)
+#endif
+
 typedef unsigned clientId;
 /*
  * The Packaging protocol

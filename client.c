@@ -8,6 +8,7 @@
 #include <unistd.h> /* close */
 #include <string.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "client.h"
 
@@ -71,3 +72,71 @@ int clientCall(char * serverName) {
 	return sockfd;
 
 }
+
+
+void *Listen(void *threadId) {
+	long tid;
+	tid = (long)threadId;
+
+	struct timeval tv;
+
+	tv.tv_sec = 0;
+	tv.tv_usec = 100000;
+
+	Printf("Listener thread %d starts\n", tid);
+
+    fd_set readfds;
+	while (1) {
+	    FD_ZERO(&readfds);
+	    FD_SET(fd, &readfds);
+
+	    // don't care about writefds and exceptfds:
+	    select(fd+1, &readfds, NULL, NULL, &tv);
+
+	    if (FD_ISSET(STDIN, &readfds))
+	        printf("A key was pressed!\n");
+	    else
+	        printf("Timed out.\n");
+
+	    return 0;
+	}
+	}
+
+	pthread_exit(NULL);
+}
+
+pthread_t listener;
+
+void startIt(void) {
+   pthread_attr_t attr;
+
+   pthread_attr_init(&attr);
+   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+   int rc;
+   long t = 0;
+
+   rc = pthread_create(&listener, &attr, Listen, (void *)t);
+   if (rc){
+      Printf("ERROR; return code from pthread_create() is %d\n", rc);
+      exit(-1);
+   }
+
+   pthread_attr_destroy(&attr);
+}
+
+void endIt(void) {
+	int rc;
+	void *status;
+
+	// stop the listener thread
+
+	// join the thread
+    rc = pthread_join(listener, &status);
+
+    if (rc) {
+       Printf("ERROR; return code from pthread_join() is %d\n", rc);
+       exit(-1);
+    }
+}
+

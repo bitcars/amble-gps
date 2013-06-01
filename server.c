@@ -20,24 +20,6 @@
 #define SUCCESS 0
 #define ERROR   1
 
-#define DEBUG 0
-
-#if DEBUG
-static int Printf (const char * format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    int ret = 0;
-
-	ret = vprintf(format, args);
-
-    va_end(args);
-
-	return ret;
-}
-#else
-#define Printf(...)
-#endif
 
 /* auxillary functions to read newline-terminated strings from a file/socket */
 int readnf (int, char *);
@@ -152,7 +134,7 @@ void handler(AmbleClientInfo * clientInfo) {
     sprintf(outfile, "client-%d.txt", clientInfo->cid);
 
 
-    fp = fopen(outfile, "w");
+    fp = fopen(outfile, "a");
 
     client_local = clientInfo->remotefd; /* store client socket descriptor */
     
@@ -227,12 +209,12 @@ void serverOnLine(void) {
 			perror("listener: socket");
 			continue;
 		}
-            if (setsockopt( server, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-perror("set enable address reuse");
-continue;
-}
+		if (setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+			perror("set enable address reuse");
+			continue;
+		}
 
-	    /* set listening socket as non-blocking */
+		/* set listening socket as non-blocking */
 	    if (fcntl(server, F_SETFL, O_NONBLOCK) < 0 ) {
 	    	perror("set non-blocking socket\n" );
 			continue;

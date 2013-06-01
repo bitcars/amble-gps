@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
+#include <stdarg.h>
 #include "protocol.h"
 
 #define UNINITPKG  0xDEADBEEF
@@ -21,6 +23,20 @@ typedef struct _comPackageHeader {
 	uint32_t packageId;
 	uint32_t ack;
 } comHeader;
+
+#if DEBUG
+int Printf (const char * format, ...){
+    va_list args;
+    va_start(args, format);
+    int ret = 0;
+
+	ret = vprintf(format, args);
+
+    va_end(args);
+
+	return ret;
+}
+#endif
 
 void compile_time_assertions(void) {
 	COMPILE_ASSERT(sizeof(comHeader) == COM_HEADER_SIZE)
