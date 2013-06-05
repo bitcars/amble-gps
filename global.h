@@ -14,6 +14,7 @@
 
 /* socket port and max message length */
 #define SERVER_PORT "3412"
+#define CLIENT_PORT "5937"
 #define MAX_MSG 1024
 #define BACKLOG 5
 

@@ -306,9 +306,8 @@ int ReadGPSPackage(int fd, struct gps_package * gpkg) {
 	int readcount; /* no. characters read */
 	unsigned char buff[MAX_MSG];
 	struct gps_package * marker = NULL;
-	int foundType;
+	int foundType = NOFIXFOUND;
 	State_t state = INIT;
-	uint8_t ack = 0x23;
 
 	readcount = (int)read(fd, buff, sizeof(buff));
 	Printf("readcound %d\n", readcount);
