@@ -120,62 +120,6 @@ static int parse_gps_json(const char * buffer, struct gps_package * data) {
     return SUCCESS;
 }
 
-static bool SendGPSPackage(int fd, const void *buf, size_t n, uint8_t flag) {
-
-	/* send gps package */
-    uint8_t header = DELIMITER_BYTE;
-	if (write(fd, &header, sizeof(uint8_t)) == -1) {
-		fprintf(stderr, "gpspipe: Socket write Error, %s(%d)\n", strerror(errno), errno);
-		return false;
-	}
-	if (write(fd, &flag, sizeof(uint8_t)) == -1) {
-		fprintf(stderr, "gpspipe: Socket write Error, %s(%d)\n", strerror(errno), errno);
-		return false;
-	}
-	char * data = (char *) buf;
-	unsigned i;
-	for (i = 0; i<n; i++) {
-		if (write(fd, data++, 1) == -1) {
-			fprintf(stderr, "gpspipe: Socket write Error, %s(%d)\n", strerror(errno), errno);
-			return false;
-		}
-	}
-
-	fd_set set;
-	struct timeval timeout;
-	int rv;
-	char buff[128];
-	int len = 128;
-
-	FD_ZERO(&set);
-	/* clear the set */
-	FD_SET(fd, &set);
-	/* add our file descriptor to the set */
-
-	timeout.tv_sec = 5;
-	timeout.tv_usec = 0;
-
-	rv = select(fd + 1, &set, NULL, NULL, &timeout);
-	if (rv == -1) {
-		perror("select"); /* an error occurred */
-		return false;
-	} else if (rv == 0) {
-		perror("read timeout"); /* a timeout occurred */
-		read(fd, buff, len); /* there was data to read */
-		printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@, %s", buff);
-		return false;
-	} else {
-		read(fd, buff, len); /* there was data to read */
-		printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@, %s", buff);
-		return true;
-	}
-//	if (read(fd, buff, len) < 0)
-//		return false;
-//	else
-//		return true;
-}
-
-
 static void open_serial(char *device)
 /* open the serial port and set it up */
 {
@@ -257,10 +201,9 @@ int main(int argc, char **argv) {
 	bool sleepy = false;
 	bool new_line = true;
 	bool raw = false;
-	bool watch = false;
+	bool watch = true;
 	bool profile = false;
 	bool usesocket = false;
-	bool connectionAlive = false;
 	long count = -1;
 	int option;
 	unsigned int vflag = 0, l = 0;
@@ -275,9 +218,11 @@ int main(int argc, char **argv) {
 	char *outfile = NULL;
 	char *serverName = NULL;
 	struct gps_package gpsPackage;
+	comSender *sender = NULL;
 
 	/*@-branchstate@*/
 	flags = WATCH_ENABLE;
+	flags |= WATCH_JSON;
 	while ((option = getopt(argc, argv, "?dD:lhrRwtT:vVn:s:o:pS:")) != -1) {
 		switch (option) {
 		case 'S':
@@ -422,12 +367,11 @@ int main(int argc, char **argv) {
 	if ((isatty(STDERR_FILENO) == 0) || daemonize)
 		vflag = 0;
 
-	/* check if server address is reachable */
+	/* create a sender instance */
 	if (usesocket) {
-		client = clientCall(serverName);
-		if (client != -1)
-			connectionAlive = true;
-		else
+		sender = newComSender();
+		client = clientCall(serverName, sender);
+		if (client == -1)
 			timer_reset();
 	}
 
@@ -482,38 +426,26 @@ int main(int argc, char **argv) {
 
 				if (c == '\n') {
 					/* We have received a complete package */
-					if (usesocket && connectionAlive) {
+					if (usesocket) {
 						/* parse the package with json */
 						/* null end the string */
-						if (j < (int) (sizeof(serbuf) - 1)) {
-							serbuf[j] = '\0';
+						if (sender->sockfd != -1) {
+							if (j < (int) (sizeof(serbuf) - 1)) {
+								serbuf[j] = '\0';
 
-							rc = parse_gps_json(serbuf, &gpsPackage);
-							if (rc == SUCCESS) {
-								if (SendGPSPackage(client,
-										&gpsPackage,
-										(size_t) sizeof(struct gps_package),
-										GPS_BYTE) == false) {
-									connectionAlive = false;
-									timer_reset();
+								rc = parse_gps_json(serbuf, &gpsPackage);
+								if (rc == SUCCESS) {
+									sendGPSPackage(sender, &gpsPackage, 0);
 								}
-							}
 
-						} else {
-							fprintf(stderr, "gpspipe: buffer overflow");
-							exit(1);
+							} else {
+								fprintf(stderr, "gpspipe: buffer overflow");
+								/* FIXME: revive the overflow instead of quit */
+								exit(1);
+							}
 						}
-					}
-					else if (usesocket && !connectionAlive) {
-						if (timer_up()) {
-							client = clientCall(serverName);
-							if (client == -1) {
-								connectionAlive = false;
-								timer_reset();
-							}
-							else {
-								connectionAlive = true;
-							}
+						else {
+							clientCall(serverName, sender);
 						}
 					}
 

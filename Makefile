@@ -22,7 +22,7 @@ endif
 endif
 
 # Optimization and g++ flags
-CCFLAG+=-O2 -Wall
+CCFLAG+=-g -Wall
 # Linker flags
 LDFLAGS+=-lyajl -lpthread
 INCS:=-I$(INCDIR)

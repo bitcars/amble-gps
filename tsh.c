@@ -107,7 +107,6 @@ int main(int argc, char **argv)
 	char c;
 	char cmdline[MAXLINE];
 	int emit_prompt = 1; /* emit prompt (default) */
-	pthread_t thread;   /* thread variable */
 
 	/* Redirect stderr to stdout (so that driver will get all output
 	 * on the pipe connected to stdout) */
@@ -147,8 +146,6 @@ int main(int argc, char **argv)
 	/* Initialize the server */
 	serverOnLine();
 
-	pthread_create(&thread, 0, &serverThread, NULL);
-
 	/* Execute the shell's read/eval loop */
 	while (1) {
 		/* Read command line */
@@ -156,18 +153,21 @@ int main(int argc, char **argv)
 			printf("%s", prompt);
 			fflush(stdout);
 		}
-		if ((fgets(cmdline, MAXLINE, stdin) == NULL) && ferror(stdin))
-			app_error("fgets error");
-		if (feof(stdin)) { /* End of file (ctrl-d) */
-			fflush(stdout);
-			serverOffLine();
-			exit(0);
-		}
 
-		/* Evaluate the command line */
-		eval(cmdline);
-		fflush(stdout);
-		fflush(stdout);
+		if (stdinSelected()) {
+			if ((fgets(cmdline, MAXLINE, stdin) == NULL )&& ferror(stdin))
+				app_error("fgets error");
+			if (feof(stdin)) { /* End of file (ctrl-d) */
+				fflush(stdout);
+				serverOffLine();
+				exit(0);
+			}
+
+			/* Evaluate the command line */
+			eval(cmdline);
+			fflush(stdout);
+			fflush(stdout);
+		}
 	}
 
 	exit(0); /* control never reaches here */

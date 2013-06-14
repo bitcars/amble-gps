@@ -7,6 +7,8 @@
 
 #include "global.h"
 
+#include <stdarg.h>
+
 void *get_in_addr(struct sockaddr *sa)
 {
     if (sa->sa_family == AF_INET) {
@@ -25,3 +27,17 @@ CheckSum_t ChecksumCalculator(const void * buf, size_t n) {
 	//printf("checksum %u\n", checksum);
 	return checksum;
 }
+
+#if DEBUG
+int Printf (const char * format, ...){
+    va_list args;
+    va_start(args, format);
+    int ret = 0;
+
+	ret = vprintf(format, args);
+
+    va_end(args);
+
+	return ret;
+}
+#endif

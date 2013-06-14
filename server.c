@@ -27,7 +27,7 @@ int readline(int, char *, int);
 
 int ReadGPSPackage(int fd, struct gps_package * gpkg);
 
-int server;         /* listening socket descriptor */
+static int serverfd;         /* listening socket descriptor */
 
 
 /**
@@ -35,7 +35,7 @@ int server;         /* listening socket descriptor */
 **/
 void cleanup()
 {
-    close(server);
+    close(serverfd);
     pthread_exit(NULL);
     return;
 } /* cleanup() */
@@ -136,7 +136,7 @@ void handler(AmbleClientInfo * clientInfo) {
 
     fp = fopen(outfile, "a");
 
-    client_local = clientInfo->remotefd; /* store client socket descriptor */
+    client_local = clientInfo->receiver->sockfd; /* store client socket descriptor */
     
     while(ReadGPSPackage(client_local, &gps)!= -1) {
     	outputKML(&gps, clientInfo->cid);
@@ -160,13 +160,13 @@ int serverRings(AmbleClientInfo ** pClientInfoPtr) {
 
 	/* non-blocking accept */
 	socklen_t sin_size = sizeof (remoteAddr);
-	remotefd = accept(server, (struct sockaddr *)&remoteAddr, &sin_size);
+	remotefd = accept(serverfd, (struct sockaddr *)&remoteAddr, &sin_size);
 
 	if (remotefd != -1) {
 		/* allocate an AmbleClient */
 		*pClientInfoPtr = (AmbleClientInfo *) malloc(sizeof(AmbleClientInfo));
-		(*pClientInfoPtr)->remotefd = remotefd;
-		(*pClientInfoPtr)->remoteAddr = remoteAddr;
+		(*pClientInfoPtr)->receiver->sockfd = remotefd;
+		(*pClientInfoPtr)->receiver->sender = remoteAddr;
 
 		inet_ntop(remoteAddr.ss_family,
 				get_in_addr((struct sockaddr *)&remoteAddr),
@@ -180,9 +180,53 @@ int serverRings(AmbleClientInfo ** pClientInfoPtr) {
 	}
 }
 
+void handle(int sockfd) {
+	struct sockaddr_storage remoteAddr;
+	socklen_t len = sizeof remoteAddr;
+    int numbytes;
+    char buf[MAX_MSG];
+    char s[INET6_ADDRSTRLEN];
+
+    if ((numbytes = recvfrom(sockfd, buf, MAX_MSG-1 , 0,
+        (struct sockaddr *)&remoteAddr, &len)) == -1) {
+        perror("recvfrom");
+        //exit(1);
+    }
+
+    Printf("server: got packet from %s\n", inet_ntop(remoteAddr.ss_family,
+        		get_in_addr((struct sockaddr *)&remoteAddr), s, sizeof s));
+    Printf("server: packet is %d bytes long\n", numbytes);
+    buf[numbytes] = '\0';
+}
+
+#define STDIN 0  // file descriptor for standard input
+
+bool stdinSelected(void) {
+    fd_set fds;
+    int maxfd = serverfd;
+
+    FD_ZERO(&fds);
+    FD_SET(serverfd, &fds);
+    FD_SET(STDIN, &fds);
+
+    select(maxfd+1, &fds, NULL, NULL, NULL);
+
+    if (FD_ISSET(serverfd, &fds)) {
+    	handle(serverfd);
+    	return false;
+    }
+    else if (FD_ISSET(STDIN, &fds)){
+    	return true;
+    }
+    else {
+    	/* control shouldn't come here */
+    	return false;
+    }
+}
+
 /* Clean up after the connection is broken */
 void serverHangup(AmbleClientInfo * pWorker) {
-	close(pWorker->remotefd);
+	close(pWorker->receiver->sockfd);
 
 	free(pWorker);
 }
@@ -196,7 +240,7 @@ void serverOnLine(void) {
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
-	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
 	if ((rv = getaddrinfo(NULL, SERVER_PORT, &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
@@ -205,23 +249,17 @@ void serverOnLine(void) {
 	// loop through all the results and bind to the first we can
 	int on=1;
 	for (p = servinfo; p != NULL ; p = p->ai_next) {
-		if ((server = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+		if ((serverfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
 			perror("listener: socket");
 			continue;
 		}
-		if (setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+		if (setsockopt(serverfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
 			perror("set enable address reuse");
 			continue;
 		}
 
-		/* set listening socket as non-blocking */
-	    if (fcntl(server, F_SETFL, O_NONBLOCK) < 0 ) {
-	    	perror("set non-blocking socket\n" );
-			continue;
-		}
-
-		if (bind(server, p->ai_addr, p->ai_addrlen) == -1) {
-			close(server);
+		if (bind(serverfd, p->ai_addr, p->ai_addrlen) == -1) {
+			close(serverfd);
 			perror("listener: bind");
 			continue;
 		}
@@ -232,20 +270,13 @@ void serverOnLine(void) {
 		exit(1);
 	}
 	freeaddrinfo(servinfo);
-
-    /* wait for connection from client with a pending queue of size 5 */
-	if (listen(server, BACKLOG) == -1) {
-		perror("listen");
-		exit(1);
-	}
-
 }
 
 /*
  * Let server go off-line
  */
 void serverOffLine(void) {
-	close(server);
+	close(serverfd);
 }
 
 

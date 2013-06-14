@@ -14,12 +14,13 @@
 
 typedef struct ambleOperator {
 	clientId cid;
-	int remotefd;
-	struct sockaddr_storage remoteAddr;
+	comReceiver *receiver;
 } AmbleClientInfo;
 
 void serverOnLine(void);
 void serverOffLine(void);
+
+bool stdinSelected(void);
 
 int serverRings(AmbleClientInfo ** pClientInfoPtr);
 void serverHangup(AmbleClientInfo * client);

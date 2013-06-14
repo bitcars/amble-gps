@@ -12,12 +12,20 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 
+#define DEBUG 1
+
+#if DEBUG
+int Printf (const char * format, ...);
+#else
+#define Printf(...)
+#endif
+
+
 /* socket port and max message length */
 #define SERVER_PORT "3412"
 #define CLIENT_PORT "5937"
 #define MAX_MSG 1024
 #define BACKLOG 5
-
 /*
  * Data transfer Protocol
  */
@@ -28,6 +36,7 @@ struct gps_package {
     float speed;
     float heading;
 };
+#define GPS_PACKAGE_SIZE_BYTE 20
 
 
 #define SUCCESS 0

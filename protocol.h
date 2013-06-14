@@ -15,21 +15,18 @@
 #define PROTOCOL_H_
 
 #include <stdbool.h>
+#include <stdint.h>
+#include <netdb.h>
 
 #include "global.h"
 
 #define COM_SUCCESS 0
 #define COM_FAILURE -1
 
-#define DEBUG 1
-
-#if DEBUG
-int Printf (const char * format, ...);
-#else
-#define Printf(...)
-#endif
-
 typedef unsigned clientId;
+typedef float float32_t;
+typedef double float64_t;
+
 /*
  * The Packaging protocol
  */
@@ -51,6 +48,8 @@ typedef struct comSender {
 	int sockfd;
 	int flag;
 	uint32_t latestId;
+	struct sockaddr recvAddr;
+	socklen_t addrlen;
 } comSender;
 
 comSender * newComSender(void);
@@ -59,11 +58,21 @@ comSender * newComSender(void);
  */
 
 typedef struct comReceiver {
+	int sockfd;
 	uint32_t lastId;
+	struct sockaddr_storage sender;
 } comReceiver;
+
+
+/* simple 32-bit floating point encapsulation */
+uint32_t htonf(float f);
+float ntohf(uint32_t i);
 
 comReceiver * newComReceiver(void);
 
+#define PACK_GPS(buf, gps) pack((buf), "fffff", (gps)->lat, (gps)->lon, (gps)->alt, (gps)->speed, (gps)->heading)
+
+int32_t pack(unsigned char *buf, char *format, ...);
 bool comDetectConnection(const comReceiver* pReceiver);
 
 int comPackData(comPackage* pPackage, void * pData, const size_t uDataSize);
