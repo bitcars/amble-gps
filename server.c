@@ -28,6 +28,7 @@ int readline(int, char *, int);
 int ReadGPSPackage(int fd, struct gps_package * gpkg);
 
 static int serverfd;         /* listening socket descriptor */
+static ComReceiver* receiver;
 
 
 /**
@@ -149,54 +150,24 @@ void handler(AmbleClientInfo * clientInfo) {
     return;
 } /* handler() */
 
-/* A not so elegant implementation that constantly checks if a
- * new connection is coming
- * TODO: we should use select instead
- */
-int serverRings(AmbleClientInfo ** pClientInfoPtr) {
-	char s[INET6_ADDRSTRLEN];
-	struct sockaddr_storage remoteAddr;
-	int remotefd;
 
-	/* non-blocking accept */
-	socklen_t sin_size = sizeof (remoteAddr);
-	remotefd = accept(serverfd, (struct sockaddr *)&remoteAddr, &sin_size);
+void handle(ComReceiver* receiver) {
+	unsigned char buf[MAX_MSG];
+	ComPackage *newPackage = newComPackage();
 
-	if (remotefd != -1) {
-		/* allocate an AmbleClient */
-		*pClientInfoPtr = (AmbleClientInfo *) malloc(sizeof(AmbleClientInfo));
-		(*pClientInfoPtr)->receiver->sockfd = remotefd;
-		(*pClientInfoPtr)->receiver->sender = remoteAddr;
+	newPackage->pData = buf;
+	int datasize = comReceiveData(receiver, newPackage);
 
-		inet_ntop(remoteAddr.ss_family,
-				get_in_addr((struct sockaddr *)&remoteAddr),
-				s, sizeof s);
-		printf("server: got connection from %s\n", s);
-		return 1;
-	}
-	else {
-		*pClientInfoPtr = NULL;
-		return 0;
-	}
-}
+	struct gps_package gps;
+	UNPACK_GPS(newPackage->pData, gps);
 
-void handle(int sockfd) {
-	struct sockaddr_storage remoteAddr;
-	socklen_t len = sizeof remoteAddr;
-    int numbytes;
-    char buf[MAX_MSG];
-    char s[INET6_ADDRSTRLEN];
+	printf("%.9f, %.9f\n", gps.lat, gps.lon);
 
-    if ((numbytes = recvfrom(sockfd, buf, MAX_MSG-1 , 0,
-        (struct sockaddr *)&remoteAddr, &len)) == -1) {
-        perror("recvfrom");
-        //exit(1);
-    }
-
-    Printf("server: got packet from %s\n", inet_ntop(remoteAddr.ss_family,
-        		get_in_addr((struct sockaddr *)&remoteAddr), s, sizeof s));
-    Printf("server: packet is %d bytes long\n", numbytes);
-    buf[numbytes] = '\0';
+//	Printf("server: got packet from %s:%u\n",
+//			inet_ntop(remoteAddr.ss_family,
+//					get_in_addr((struct sockaddr *) &remoteAddr), s, sizeof s),
+//			get_in_port((struct sockaddr *) &remoteAddr));
+//    Printf("server: packet is %d bytes long\n", numbytes);
 }
 
 #define STDIN 0  // file descriptor for standard input
@@ -212,7 +183,7 @@ bool stdinSelected(void) {
     select(maxfd+1, &fds, NULL, NULL, NULL);
 
     if (FD_ISSET(serverfd, &fds)) {
-    	handle(serverfd);
+    	handle(receiver);
     	return false;
     }
     else if (FD_ISSET(STDIN, &fds)){
@@ -269,6 +240,10 @@ void serverOnLine(void) {
 		fprintf(stderr, "listener: failed to bind socket\n");
 		exit(1);
 	}
+
+	receiver = newComReceiver();
+	receiver->sockfd = serverfd;
+
 	freeaddrinfo(servinfo);
 }
 

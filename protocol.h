@@ -24,21 +24,18 @@
 #define COM_FAILURE -1
 
 typedef unsigned clientId;
-typedef float float32_t;
-typedef double float64_t;
-
 /*
  * The Packaging protocol
  */
-#define COM_HEADER_SIZE	12
+#define COM_HEADER_BYTES	12
 
 typedef struct comPackage {
-	char header[COM_HEADER_SIZE];
+	char header[COM_HEADER_BYTES];
 	void * pData;
 	size_t uDataBytes;
-} comPackage;
+} ComPackage;
 
-comPackage * newComPackage(void);
+ComPackage * newComPackage(void);
 
 /*
  *  sender communication protocol
@@ -50,9 +47,9 @@ typedef struct comSender {
 	uint32_t latestId;
 	struct sockaddr recvAddr;
 	socklen_t addrlen;
-} comSender;
+} ComSender;
 
-comSender * newComSender(void);
+ComSender * newComSender(void);
 /*
  *  receiver communication protocol
  */
@@ -61,22 +58,25 @@ typedef struct comReceiver {
 	int sockfd;
 	uint32_t lastId;
 	struct sockaddr_storage sender;
-} comReceiver;
+} ComReceiver;
 
 
 /* simple 32-bit floating point encapsulation */
 uint32_t htonf(float f);
 float ntohf(uint32_t i);
 
-comReceiver * newComReceiver(void);
+ComReceiver * newComReceiver(void);
 
-#define PACK_GPS(buf, gps) pack((buf), "fffff", (gps)->lat, (gps)->lon, (gps)->alt, (gps)->speed, (gps)->heading)
+#define PACK_GPS(buf, gps) pack((buf), "ddfff", (gps)->lat, (gps)->lon, (gps)->alt, (gps)->speed, (gps)->heading)
+#define UNPACK_GPS(buf, gps) unpack((buf), "ddfff", &((gps).lat), &((gps).lon), &((gps).alt), &((gps).speed), &((gps).heading))
 
 int32_t pack(unsigned char *buf, char *format, ...);
-bool comDetectConnection(const comReceiver* pReceiver);
+void unpack(unsigned char *buf, char *format, ...);
 
-int comPackData(comPackage* pPackage, void * pData, const size_t uDataSize);
-int comSendData(comSender* pSender, comPackage* pPackage);
-int comReceiveData(const comReceiver* pReceiver, const comPackage* pPackage, char ** ppData, size_t* pLength);
+bool comDetectConnection(const ComReceiver* pReceiver);
+
+int comPackData(ComPackage* pPackage, void * pData, const size_t uDataSize);
+int comSendData(ComSender* pSender, ComPackage* pPackage);
+int comReceiveData(ComReceiver* pReceiver, ComPackage* pPackage);
 
 #endif /* PROTOCOL_H_ */

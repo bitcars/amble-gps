@@ -14,7 +14,7 @@
 
 typedef struct ambleOperator {
 	clientId cid;
-	comReceiver *receiver;
+	ComReceiver *receiver;
 } AmbleClientInfo;
 
 void serverOnLine(void);

@@ -16,7 +16,7 @@
 #define CALL_TRIES  3
 #define RETRY_TIMER 10.0
 
-int clientCall(char * serverName, comSender * sender);
-void sendGPSPackage(comSender* sender, struct gps_package* gps, uint8_t flag);
+int clientCall(char * serverName, ComSender * sender);
+void sendGPSPackage(ComSender* sender, struct gps_package* gps, uint8_t flag);
 
 #endif /* CLIENT_H_ */

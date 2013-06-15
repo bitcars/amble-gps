@@ -26,17 +26,20 @@ int Printf (const char * format, ...);
 #define CLIENT_PORT "5937"
 #define MAX_MSG 1024
 #define BACKLOG 5
+typedef float float32_t;
+typedef double float64_t;
 /*
  * Data transfer Protocol
  */
 struct gps_package {
-    float lat;
-    float lon;
-    float alt;
-    float speed;
-    float heading;
+	float64_t lat;
+	float64_t lon;
+    float32_t alt;
+    float32_t speed;
+    float32_t heading;
 };
-#define GPS_PACKAGE_SIZE_BYTE 20
+
+#define GPS_PACKAGE_SIZE_BYTE 28
 
 
 #define SUCCESS 0
@@ -51,6 +54,7 @@ typedef uint32_t CheckSum_t;
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa);
+in_port_t get_in_port(struct sockaddr *sa);
 
 CheckSum_t ChecksumCalculator(const void * buf, size_t n);
 

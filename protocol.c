@@ -26,11 +26,11 @@ typedef struct _comPackageHeader {
 } comHeader;
 
 void compile_time_assertions(void) {
-	COMPILE_ASSERT(sizeof(comHeader) == COM_HEADER_SIZE)
+	COMPILE_ASSERT(sizeof(comHeader) == COM_HEADER_BYTES)
 }
 
-comPackage * newComPackage(void) {
-	comPackage * ptr = (comPackage *) malloc( sizeof(comPackage) );
+ComPackage * newComPackage(void) {
+	ComPackage * ptr = (ComPackage *) malloc( sizeof(ComPackage) );
 	if (ptr == NULL) {
 		printf("Fail to allocate memory space\n");
 		exit(1);
@@ -40,8 +40,8 @@ comPackage * newComPackage(void) {
 	return ptr;
 }
 
-comSender * newComSender(void) {
-	comSender * ptr = (comSender *) malloc( sizeof(comSender) );
+ComSender * newComSender(void) {
+	ComSender * ptr = (ComSender *) malloc( sizeof(ComSender) );
 	if (ptr == NULL) {
 		printf("Fail to allocate memory space\n");
 		exit(1);
@@ -51,8 +51,8 @@ comSender * newComSender(void) {
 	return  ptr;
 }
 
-comReceiver * newComReceiver(void) {
-	comReceiver * ptr = (comReceiver *) malloc( sizeof(comSender) );
+ComReceiver * newComReceiver(void) {
+	ComReceiver * ptr = (ComReceiver *) malloc( sizeof(ComSender) );
 	if (ptr == NULL) {
 		printf("Fail to allocate memory space\n");
 		exit(1);
@@ -61,7 +61,7 @@ comReceiver * newComReceiver(void) {
 	return ptr;
 }
 
-int comPackData(comPackage* pPackage, void * pData, const size_t uDataSize) {
+int comPackData(ComPackage* pPackage, void * pData, const size_t uDataSize) {
 	if (pData != NULL && pPackage != NULL) {
 		((comHeader *)pPackage)->protocolId = PROTOCOL;
 		pPackage->pData = pData;
@@ -74,7 +74,7 @@ int comPackData(comPackage* pPackage, void * pData, const size_t uDataSize) {
 	}
 }
 
-int comSendData(comSender* pSender, comPackage* pPackage) {
+int comSendData(ComSender* pSender, ComPackage* pPackage) {
 	if (pSender == NULL || pPackage == NULL)
 		return COM_FAILURE;
 
@@ -88,7 +88,7 @@ int comSendData(comSender* pSender, comPackage* pPackage) {
 
 	/* create data package to send */
 	/* encapsulate header */
-	size_t datasize = COM_HEADER_SIZE+ pPackage->uDataBytes;
+	size_t datasize = COM_HEADER_BYTES+ pPackage->uDataBytes;
 	unsigned char *data = (unsigned char *) malloc(datasize);
 	if (data == NULL) {
 		printf("Unable to malloc\n");
@@ -96,7 +96,7 @@ int comSendData(comSender* pSender, comPackage* pPackage) {
 	}
 	pack(data, "lll", header->protocolId, header->packageId, header->ack);
 	/* append content */
-	unsigned char *content = data + COM_HEADER_SIZE;
+	unsigned char *content = data + COM_HEADER_BYTES;
 	memcpy(content, pPackage->pData, pPackage->uDataBytes);
 
 	/* assuming a connection is previously established */
@@ -106,7 +106,42 @@ int comSendData(comSender* pSender, comPackage* pPackage) {
 	return bytesSent;
 }
 
-int comReceiveData(const comReceiver* pReceiver, const comPackage* pPackage, char ** ppData, size_t* pLength) {
+int comReceiveData(ComReceiver* pReceiver, ComPackage* pPackage) {
+	if (pReceiver == NULL || pPackage == NULL)
+		return COM_FAILURE;
+
+    comHeader* header = (comHeader *) pPackage;
+	struct sockaddr_storage remoteAddr;
+	socklen_t len = sizeof remoteAddr;
+    int numbytes;
+    unsigned char buf[MAX_MSG];
+    //char s[INET6_ADDRSTRLEN];
+
+    /* read UDP diagram, and record the sender's address */
+    if ((numbytes = recvfrom(pReceiver->sockfd, buf, MAX_MSG , 0,
+        (struct sockaddr *)&remoteAddr, &len)) == -1) {
+        perror("recvfrom");
+        return -1;
+    }
+
+    /* strip the header off the package */
+    if (numbytes < COM_HEADER_BYTES)
+    	goto discard;     /* discard garbage */
+
+    unpack(buf, "lll", &header->protocolId, &header->packageId, &header->ack);
+
+    if (header->protocolId != PROTOCOL)
+    	goto discard;     /* discard garbage */
+
+    size_t datasize = numbytes - COM_HEADER_BYTES;
+    memcpy( pPackage->pData, buf + COM_HEADER_BYTES, datasize);
+    pPackage->uDataBytes = datasize;
+    return datasize;
+
+discard:
+	memset(header, 0, COM_HEADER_BYTES);
+	header->protocolId = UNINITPKG;
+	pPackage->uDataBytes = 0;
 	return 0;
 }
 
@@ -247,6 +282,19 @@ void packi32(unsigned char *buf, uint32_t i) {
 	*buf++ = i;
 }
 /*
+ ** packi64() -- store a 64-bit int into a char buffer (like htonl())
+ */
+void packi64(unsigned char *buf, uint64_t i) {
+	*buf++ = i >> 56;
+	*buf++ = i >> 48;
+	*buf++ = i >> 40;
+	*buf++ = i >> 32;
+	*buf++ = i >> 24;
+	*buf++ = i >> 16;
+	*buf++ = i >> 8;
+	*buf++ = i;
+}
+/*
  ** unpacki16() -- unpack a 16-bit int from a char buffer (like ntohs())
  */
 uint16_t unpacki16(unsigned char *buf) {
@@ -257,6 +305,15 @@ uint16_t unpacki16(unsigned char *buf) {
  */
 uint32_t unpacki32(unsigned char *buf) {
 	return (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+}
+/*
+ ** unpacki64() -- unpack a 64-bit int from a char buffer (like ntohl())
+ */
+uint64_t unpacki64(unsigned char *buf) {
+	return ((uint64_t) buf[0] << 56) | ((uint64_t) buf[1] << 48)
+			| ((uint64_t) buf[2] << 40) | ((uint64_t) buf[3] << 32)
+			| ((uint64_t) buf[4] << 24) | ((uint64_t) buf[5] << 16)
+			| ((uint64_t) buf[6] << 8) | buf[7];
 }
 /*
 ** pack() -- store data dictated by the format string in the buffer
@@ -272,6 +329,8 @@ int32_t pack(unsigned char *buf, char *format, ...)
     int32_t l;
     int8_t c;
     float32_t f;
+    float64_t d;
+    int64_t ll;
     char *s;
     int32_t size = 0, len;
 
@@ -301,11 +360,19 @@ int32_t pack(unsigned char *buf, char *format, ...)
 
         case 'f': // float
             size += 4;
-            f = (float32_t)va_arg(ap, double); // promoted
+            f = (float32_t)va_arg(ap, float64_t); // promoted
             l = pack754_32(f); // convert to IEEE 754
             packi32(buf, l);
             buf += 4;
             break;
+
+        case 'd': // double
+        	size += 8;
+        	d = (float64_t)va_arg(ap, float64_t);
+        	ll = pack754_64(d); // convert to IEEE 754
+        	packi64(buf, ll);
+        	buf += 8;
+        	break;
 
         case 's': // string
             s = va_arg(ap, char*);
@@ -333,8 +400,10 @@ void unpack(unsigned char *buf, char *format, ...)
     int16_t *h;
     int32_t *l;
     int32_t pf;
+    int64_t pd;
     int8_t *c;
     float32_t *f;
+    float64_t *d;
     char *s;
     int32_t len, count, maxstrlen=0;
 
@@ -365,6 +434,13 @@ void unpack(unsigned char *buf, char *format, ...)
             buf += 4;
             *f = unpack754_32(pf);
             break;
+
+        case 'd': //double
+        	d = va_arg(ap, float64_t*);
+        	pd = unpacki64(buf);
+        	buf += 8;
+        	*d = unpack754_64(pd);
+        	break;
 
         case 's': // string
             s = va_arg(ap, char*);

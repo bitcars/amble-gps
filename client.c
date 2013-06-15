@@ -12,7 +12,7 @@
 
 #include "client.h"
 
-int clientCall(char * serverName, comSender * sender) {
+int clientCall(char * serverName, ComSender * sender) {
 	int sockfd;
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
@@ -54,11 +54,7 @@ int clientCall(char * serverName, comSender * sender) {
 	/* save the connection info in sender object */
 	sender->recvAddr = *(p->ai_addr);
 	sender->addrlen = p->ai_addrlen;
-
 	sender->sockfd = sockfd;
-
-	char str[] = "lalala";
-	sendto(sockfd, str, strlen(str), 0, p->ai_addr, p->ai_addrlen);
 
 	/* we are now done with this structure */
     freeaddrinfo(servinfo);
@@ -180,9 +176,9 @@ void endIt(void) {
 }
 
 
-void sendGPSPackage(comSender* sender, struct gps_package* gps, uint8_t flag) {
+void sendGPSPackage(ComSender* sender, struct gps_package* gps, uint8_t flag) {
 	/* package GPS data */
-	comPackage* package = newComPackage();
+	ComPackage* package = newComPackage();
 	unsigned char buf[MAX_MSG];
 	PACK_GPS(buf, gps);
 	comPackData(package, (void *) buf, GPS_PACKAGE_SIZE_BYTE);

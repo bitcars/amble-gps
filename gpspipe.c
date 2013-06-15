@@ -111,6 +111,8 @@ static int parse_gps_json(const char * buffer, struct gps_package * data) {
         else return ERROR;
         if (speed) data->speed = YAJL_GET_DOUBLE(speed);
         else return ERROR;
+
+        printf("%.9f, %.9f\n", YAJL_GET_DOUBLE(lat), YAJL_GET_DOUBLE(lon));
     }
     else
     	return ERROR;
@@ -218,7 +220,7 @@ int main(int argc, char **argv) {
 	char *outfile = NULL;
 	char *serverName = NULL;
 	struct gps_package gpsPackage;
-	comSender *sender = NULL;
+	ComSender *sender = NULL;
 
 	/*@-branchstate@*/
 	flags = WATCH_ENABLE;
