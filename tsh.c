@@ -96,7 +96,6 @@ void app_error(const char *msg);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 
-void * serverThread(void *);
 void pickUp(AmbleClientInfo * client);
 
 /*
@@ -206,23 +205,6 @@ void pickUp(AmbleClientInfo * client)
 	return;
 }
 
-/*
- * serverThread - The thread that create a socket to listen
- * and fork into connections with clients
- */
-void * serverThread(void * null) {
-	AmbleClientInfo * newClient;
-
-	while (1) {
-		/* Check if there is incoming connection */
-		if (serverRings(&newClient)) {
-			pickUp(newClient);
-		}
-	}
-
-	/* control should never reach here */
-	return NULL;
-}
 
 /*
  * eval - Evaluate the command line that the user has just typed in

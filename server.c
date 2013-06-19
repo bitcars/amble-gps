@@ -163,6 +163,8 @@ void handle(ComReceiver* receiver) {
 
 	printf("%.9f, %.9f\n", gps.lat, gps.lon);
 
+	free(newPackage);
+
 //	Printf("server: got packet from %s:%u\n",
 //			inet_ntop(remoteAddr.ss_family,
 //					get_in_addr((struct sockaddr *) &remoteAddr), s, sizeof s),
